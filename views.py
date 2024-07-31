@@ -10,6 +10,8 @@ from flask import (
 )
 from jogoteca import app, db
 from models import Jogos, Usuarios
+from helpers import recover_image, delete_file_modified
+import time
 
 
 @app.route("/")
@@ -48,7 +50,8 @@ def create():
 
     file = request.files["file"]
     upload_path = app.config["UPLOAD_PATH"]
-    file.save(f"upload_path/image{novo_jogo.id}.jpg")
+    timestamp = time.time()
+    file.save(f"{upload_path}/image{novo_jogo.id}-{timestamp}.jpg")
 
     return redirect(url_for("index"))
 
@@ -59,7 +62,10 @@ def editGame(id):
         flash("Voce deve estar logado para realizar esta ação.")
         return redirect(url_for("login", next=url_for("editGame", id=id)))
     jogo = Jogos.query.filter_by(id=id).first()
-    return render_template("editGame.html", titulo="Editar Jogo", jogo=jogo)
+    image_game = recover_image(id)
+    return render_template(
+        "editGame.html", titulo="Editar Jogo", jogo=jogo, image_game=image_game
+    )
 
 
 @app.route(
@@ -76,6 +82,12 @@ def alter():
 
     db.session.add(jogo)
     db.session.commit()
+
+    file = request.files["file"]
+    upload_path = app.config["UPLOAD_PATH"]
+    timestamp = time.time()
+    delete_file_modified(jogo.id)
+    file.save(f"{upload_path}/image{jogo.id}-{timestamp}.jpg")
 
     return redirect(url_for("index"))
 

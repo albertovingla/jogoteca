@@ -10,7 +10,7 @@ from flask import (
 )
 from jogoteca import app, db
 from models import Jogos, Usuarios
-from helpers import recover_image, delete_file_modified
+from helpers import recover_image, delete_file_modified, GameForm, UserForm
 import time
 
 
@@ -25,7 +25,8 @@ def newGame():
     if "user_logged" not in session or session["user_logged"] is None:
         flash("Voce deve estar logado para realizar esta ação.")
         return redirect(url_for("login", next=url_for("newGame")))
-    return render_template("newGame.html", titulo="Novo Jogo")
+    form = GameForm()
+    return render_template("newGame.html", titulo="Novo Jogo", form=form)
 
 
 @app.route(
@@ -35,9 +36,14 @@ def newGame():
     ],
 )
 def create():
-    nome = request.form["nome"]
-    categoria = request.form["categoria"]
-    console = request.form["console"]
+    form = GameForm(request.form)
+
+    if not form.validate_on_submit():
+        return redirect(url_for("newGame"))
+
+    nome = form.nome.data
+    categoria = form.categoria.data
+    console = form.console.data
 
     jogo = Jogos.query.filter_by(nome=nome).first()
     if jogo:
@@ -62,9 +68,19 @@ def editGame(id):
         flash("Voce deve estar logado para realizar esta ação.")
         return redirect(url_for("login", next=url_for("editGame", id=id)))
     jogo = Jogos.query.filter_by(id=id).first()
+
+    form = GameForm()
+    form.nome.data = jogo.nome
+    form.categoria.data = jogo.categoria
+    form.console.data = jogo.console
+
     image_game = recover_image(id)
     return render_template(
-        "editGame.html", titulo="Editar Jogo", jogo=jogo, image_game=image_game
+        "editGame.html",
+        titulo="Editar Jogo",
+        id=id,
+        image_game=image_game,
+        form=form,
     )
 
 
@@ -75,19 +91,23 @@ def editGame(id):
     ],
 )
 def alter():
-    jogo = Jogos.query.filter_by(id=request.form["id"]).first()
-    jogo.nome = request.form["nome"]
-    jogo.categoria = request.form["categoria"]
-    jogo.console = request.form["console"]
+    form = GameForm(request.form)
 
-    db.session.add(jogo)
-    db.session.commit()
+    if form.validate_on_submit():
 
-    file = request.files["file"]
-    upload_path = app.config["UPLOAD_PATH"]
-    timestamp = time.time()
-    delete_file_modified(jogo.id)
-    file.save(f"{upload_path}/image{jogo.id}-{timestamp}.jpg")
+        jogo = Jogos.query.filter_by(id=request.form["id"]).first()
+        jogo.nome = form.nome.data
+        jogo.categoria = form.categoria.data
+        jogo.console = form.console.data
+
+        db.session.add(jogo)
+        db.session.commit()
+
+        file = request.files["file"]
+        upload_path = app.config["UPLOAD_PATH"]
+        timestamp = time.time()
+        delete_file_modified(jogo.id)
+        file.save(f"{upload_path}/image{jogo.id}-{timestamp}.jpg")
 
     return redirect(url_for("index"))
 
@@ -107,7 +127,8 @@ def delete(id):
 @app.route("/login")
 def login():
     next = request.args.get("next")
-    return render_template("login.html", next=next)
+    form = UserForm()
+    return render_template("login.html", next=next, form=form)
 
 
 @app.route(
@@ -117,9 +138,10 @@ def login():
     ],
 )
 def autenticate():
-    user = Usuarios.query.filter_by(nickname=request.form["user"]).first()
+    form = UserForm(request.form)
+    user = Usuarios.query.filter_by(nickname=form.user.data).first()
     if user:
-        if request.form["password"] == user.senha:
+        if form.password.data == user.senha:
             session["user_logged"] = user.nickname
             flash(user.nickname + " logado com sucesso!")
             next_page = request.form["next"]

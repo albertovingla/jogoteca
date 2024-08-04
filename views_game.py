@@ -9,8 +9,8 @@ from flask import (
     send_from_directory,
 )
 from jogoteca import app, db
-from models import Jogos, Usuarios
-from helpers import recover_image, delete_file_modified, GameForm, UserForm
+from models import Jogos
+from helpers import recover_image, delete_file_modified, GameForm
 import time
 
 
@@ -121,40 +121,6 @@ def delete(id):
     db.session.commit()
     flash("Jogo deletado com sucesso!")
 
-    return redirect(url_for("index"))
-
-
-@app.route("/login")
-def login():
-    next = request.args.get("next")
-    form = UserForm()
-    return render_template("login.html", next=next, form=form)
-
-
-@app.route(
-    "/autenticate",
-    methods=[
-        "POST",
-    ],
-)
-def autenticate():
-    form = UserForm(request.form)
-    user = Usuarios.query.filter_by(nickname=form.user.data).first()
-    if user:
-        if form.password.data == user.senha:
-            session["user_logged"] = user.nickname
-            flash(user.nickname + " logado com sucesso!")
-            next_page = request.form["next"]
-            return redirect(next_page)
-    else:
-        flash("Login ou senha inválidos. Verifique suas credenciais.")
-        return redirect(url_for("login"))
-
-
-@app.route("/logout")
-def logout():
-    session["user_logged"] = None
-    flash("Logout realizado!")
     return redirect(url_for("index"))
 
 
